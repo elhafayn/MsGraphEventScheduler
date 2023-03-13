@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using CommandLine.Text;
 using Microsoft.Graph.Models;
+using Microsoft.Graph.Models.TermStore;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -11,38 +12,43 @@ class Program
     {
         [Option('l', "list-users", Required = false, HelpText = "list all the users in your organization.")]
         public bool listUsers { get; set; }
-        [Option('s', "search", Required = false, HelpText = "search for users by email")]
+        [Option("search", Required = false, HelpText = "search for users by email")]
         public string keyword { get; set; }
-        [Option('t', "top", Required = false, HelpText = "limit the resource count")]
+        [Option("top", Required = false, HelpText = "limit the resource count")]
         public int top { get; set; }
 
         [Option('q', "quit", Required = false, HelpText = "close the application")]
         public bool quit { get; set; }
 
         #region findMeetingTimes
-        [Option('r', "attendees", Required = false, HelpText = "A collection of attendees or resources for the meeting")]
+        [Option("add", Required = false, HelpText = "Add multiple attendees to the meeting")]
         public IEnumerable<string> attendees { get; set; }
 
-        [Option( "la", Required = false, HelpText = "list selected attendees")]
+        [Option('d', Required = false, HelpText = " remove attendee by email ")]
+        public string removeAttendees { get; set; }
+
+        [Option('g', Required = false, HelpText = "list selected attendees")]
         public bool listAttendees { get; set; }
-        [Option("isOrganizerOptional", Required = false, HelpText = "Specify True if the organizer doesn't necessarily have to attend")]
+        [Option("OrganizerOptional", Required = false, HelpText = "Specify True if the organizer doesn't necessarily have to attend")]
         public bool isOrganizerOptional { get; set; }
-        [Option('a', "add-attendee", Required = false, HelpText = "Add recipient  email to the meeting")]
+        [Option('a', Required = false, HelpText = "Add a single attendee  to the meeting")]
         public string attendee { get; set; }
-        [Option('f', "findMeetingTimes", Required = false, HelpText = "Suggest meeting times ")]
+        [Option("Optional", Required = false, HelpText = "set attendee to optional default required")]
+        public bool Optionalattendee { get; set; }
+        [Option('f', Required = false, HelpText = "Suggest meeting times ")]
         public bool findMeetingTimes { get; set; }
-        [Option("meetingDuration", Required = false, HelpText = "The length of the meeting in minutes ")]
+        [Option("md", Required = false, HelpText = "The length of the meeting in minutes ")]
         public long meetingDuration { get; set; }
-        [Option("map", Required = false, HelpText = "The minimum required confidence for a time slot to be returned in the response. It is a % value ranging from 0 to 100.")]
+        [Option("confidence", Required = false, HelpText = "The minimum required confidence for a time slot to be returned in the response. It is a % value ranging from 0 to 100. for more details https://learn.microsoft.com/en-us/graph/api/user-findmeetingtimes?view=graph-rest-1.0&tabs=http#the-confidence-of-a-meeting-suggestion")]
         public long minimumAttendeePercentage { get; set; }
-        [Option("timeConstraint", Required = false, HelpText = "list slots of point of time in a combined date and time  representation ({date}T{time}; for example, 2023-04-16T09:00:00  separated by space, Note time zone is Pacific Standard Time")]
+        [Option("time", Required = false, HelpText = "list slots of point of time in a combined date and time  representation ({date}T{time}; for example, 2023-04-16T09:00:00  separated by space, Note time zone is Pacific Standard Time")]
         public IEnumerable<string> timeConstraint { get; set; }
         #endregion
-        [Option("schedule", Required = false, HelpText = "suggested time key to schedule the meeting ")]
+        [Option('s', Required = false, HelpText = "suggested time key to schedule the meeting ")]
         public int schedule { get; set; }
-        [Option("sub", Required = false, HelpText = " meeting subject ")]
+        [Option("subject", Required = false, HelpText = " meeting subject ")]
         public string subject { get; set; }
-        [Option("con", Required = false, HelpText = " meeting content ")]
+        [Option("content", Required = false, HelpText = " meeting content ")]
         public string content { get; set; }  
         
         [Option("alt", Required = false, HelpText = " Meeting Allow New Time Proposals ")]
@@ -143,7 +149,8 @@ class Program
                 service.addAttendee(new EmailAddress() { Address = user.Mail, Name = user.DisplayName }, AttendeeType.Required);
                 Console.WriteLine("user has been added successfully to the meeting Attendees !");
             }
-                
+            service.ShowAttendees();
+
 
         }
         else if (o.listAttendees)
@@ -155,6 +162,7 @@ class Program
         {
 
             await addAttendees(o.attendees);
+            service.ShowAttendees();
         }   
         else if (o.findMeetingTimes)
         {
@@ -170,8 +178,23 @@ class Program
             else
             await scheduleTheMeeting(o.schedule,o.subject, o.content, o.AllowNewTimeProposals);
         }
+        else if (!string.IsNullOrEmpty(o.removeAttendees))
+        {
+          
+                await RemoveAttendee(o.removeAttendees);
+            service.ShowAttendees();
+        }
 
 
+    }
+
+    private static async Task RemoveAttendee(string removeAttendees)
+    {
+        var user = await service.GetUserByEmail(removeAttendees);
+        if(user!=null)
+        service.removeAttendee(new EmailAddress { Address=user.Mail,Name=user.DisplayName});
+
+    
     }
 
     private static async Task scheduleTheMeeting(int meetingKey,string subject, string content, bool allowNewTimeProposals)
@@ -194,7 +217,8 @@ class Program
 
     private static async  Task getSuggestedMeetingTimes(IEnumerable<string> timeConstraint,long meetingDuration,bool isOrganizerOptional)
     {
-        var times = timeConstraint?.Count()>0?new TimeConstraint() { TimeSlots = timeConstraint.Select(x => new TimeSlot() { Start = new DateTimeTimeZone { DateTime = x, TimeZone = "Pacific Standard Time" } }).ToList() }:null;
+        var times = timeConstraint?.Count()>0?new TimeConstraint() { TimeSlots = timeConstraint.Select(x => new TimeSlot() { Start = new DateTimeTimeZone { DateTime = x, TimeZone = "Pacific Standard Time" } ,End= new DateTimeTimeZone { DateTime = x, TimeZone = "Pacific Standard Time" } }).ToList() }:null;
+       
         var suggestedTimes = await service.FindMeetingTimes(times, isOrganizerOptional, TimeSpan.FromMinutes(meetingDuration), true, 50);
         if (suggestedTimes != null)
         {
@@ -202,7 +226,19 @@ class Program
             int index = 1;
             foreach (var suggestedTime in suggestedTimes?.MeetingTimeSuggestions)
             {
-                Console.WriteLine($"{suggestedTime.MeetingTimeSlot.Start.DateTime} - {suggestedTime.MeetingTimeSlot.End.DateTime}, {suggestedTime.Confidence}");
+                
+                Console.WriteLine($"\n{index}>> {Convert.ToDateTime(suggestedTime.MeetingTimeSlot.Start.DateTime).ToString("dddd, dd MMMM yyyy HH:mm")} - {Convert.ToDateTime(suggestedTime.MeetingTimeSlot.End.DateTime).ToString("dddd, dd MMMM yyyy HH:mm")}");
+                Console.WriteLine($"Confidence:{suggestedTime.Confidence}\n");
+                Console.WriteLine("Attendees:\n");
+                Console.WriteLine($"EmailAddress \t Availability \n");
+                foreach (var attendee in suggestedTime.AttendeeAvailability) {
+                    Console.WriteLine($"{attendee.Attendee.EmailAddress.Address} \t {attendee.Availability} ");
+                
+                }
+                suggestedTime.MeetingTimeSlot.Start.TimeZone = "Pacific Standard Time";
+                suggestedTime.MeetingTimeSlot.Start.DateTime = suggestedTime.MeetingTimeSlot.Start.DateTime.Split(".")[0];
+                suggestedTime.MeetingTimeSlot.End.DateTime = suggestedTime.MeetingTimeSlot.End.DateTime.Split(".")[0];
+                suggestedTime.MeetingTimeSlot.End.TimeZone = "Pacific Standard Time";
                 _suggestedMeetingTimes.Add(index, new SuggestedMeetingTimes() { start = suggestedTime.MeetingTimeSlot.Start, end = suggestedTime.MeetingTimeSlot.End });
                 index++;
             }
@@ -217,7 +253,7 @@ class Program
     {
         foreach (var attendee in attendees) {
         
-            var user = await service.GetUserByEmail(attendee);
+            var user = await service.GetUserByEmail(attendee.Trim());
             if (user != null)
             {
                 service.addAttendee(new EmailAddress() { Address = user.Mail, Name = user.DisplayName }, AttendeeType.Required);

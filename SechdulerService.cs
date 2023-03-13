@@ -46,7 +46,7 @@ namespace MSGraph_Hack_Togother
 
         public void addAttendee(EmailAddress attendeeEmail, AttendeeType type)
         {
-            var attendeeObj = _attendees.SingleOrDefault(x => x.EmailAddress.Equals(attendeeEmail));
+            var attendeeObj = _attendees.FirstOrDefault(x => x.EmailAddress.Address==attendeeEmail.Address);
             if (_attendees.TryGetValue(attendeeObj, out AttendeeBase exist))
             {
                 exist.Type = type;
@@ -70,8 +70,8 @@ namespace MSGraph_Hack_Togother
             _ = _userClient ??
                 throw new System.NullReferenceException("Graph has not been initialized for user auth");
 
-           
 
+        
             var requestBody = new Event
             {
                 Subject = subject,
@@ -89,16 +89,26 @@ namespace MSGraph_Hack_Togother
                     Type = a.Type,
                 }).ToList(),
                 IsOnlineMeeting = true,
-                AllowNewTimeProposals=AllowNewTimeProposals,
+              
                 OnlineMeetingProvider = OnlineMeetingProviderType.TeamsForBusiness,
                 TransactionId = Guid.NewGuid().ToString(),
             };
-            var result = await _userClient.Me.Events.PostAsync(requestBody, (requestConfiguration) =>
-            {
-                requestConfiguration.Headers.Add("Prefer", "outlook.timezone=\"Pacific Standard Time\"");
-            });
+            try {
+
+                var result = await _userClient.Me.Events.PostAsync(requestBody, (requestConfiguration) =>
+                {
+                    requestConfiguration.Headers.Add("Prefer", "outlook.timezone=\"Pacific Standard Time\"");
+                });
+
 
             return result;
+            } catch (Exception ex) { 
+            Console.WriteLine(ex.Message.ToString());
+                return null;
+            
+            
+            }
+
 
         }
 
@@ -176,7 +186,7 @@ namespace MSGraph_Hack_Togother
 
         public void removeAttendee(EmailAddress attendeeEmail)
         {
-           _attendees.RemoveWhere(x => x.EmailAddress.Equals(attendeeEmail));
+           _attendees.RemoveWhere(x => x.EmailAddress.Address==attendeeEmail.Address);
         }
 
         public async Task<IEnumerable<User>> SearchUsers(string? keyword, int? limit)
@@ -199,13 +209,30 @@ namespace MSGraph_Hack_Togother
         {
             _ = _userClient ??
 throw new System.NullReferenceException("Graph has not been initialized for user auth");
+            try {
 
-            var result = await _userClient.Users.GetAsync((requestConfiguration) => {
-                requestConfiguration.QueryParameters.Count = true;
-                requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
-                requestConfiguration.QueryParameters.Filter = $"mail eq '{email}'";
-            });
-            return result?.Value.SingleOrDefault();
+
+                var result = await _userClient.Users.GetAsync((requestConfiguration) => {
+
+                    requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
+                    requestConfiguration.QueryParameters.Filter = $"mail eq '{email.Trim()}'";
+                });
+                return result?.Value.SingleOrDefault();
+
+            } catch (Exception ex) { 
+            
+            Console.WriteLine(ex.Message);
+                return null;
+            }
+        
+        }
+        public void ShowAttendees() {
+
+            foreach (var att in _attendees) {
+
+                Console.WriteLine($"{att.EmailAddress.Address} {att.Type.ToString()}");
+            }
+        
         }
     }
 }

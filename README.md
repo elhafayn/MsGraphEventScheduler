@@ -1,2 +1,2 @@
 # MsGraphEventScheduler
-a console app helps users to quickly schedule a meeting using Microsoft Graph API
+a console app helps Microsoft 365 users to quickly schedule a meeting using Microsoft Graph API

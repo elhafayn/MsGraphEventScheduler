@@ -18,6 +18,7 @@ public class Settings
             // User secrets are optional, values override both JSON files
             .AddUserSecrets<Program>()
             .Build();
+       
 
         return config.GetRequiredSection("Settings").Get<Settings>() ??
             throw new Exception("Could not load app settings. See README for configuration instructions.");
