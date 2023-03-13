@@ -1,5 +1,7 @@
-# MsGraphEventScheduler
+# MsGraphEventScheduler [![Hack Together: Microsoft Graph and .NET](https://img.shields.io/badge/Microsoft%20-Hack--Together-orange?style=for-the-badge&logo=microsoft)](https://github.com/microsoft/hack-together)
+
 a console app helps Microsoft 365 users to quickly schedule a meeting using Microsoft Graph API
+
 
 # Config
 you can change the configuration in setting file by adding your  tenant in order to proceed. 
